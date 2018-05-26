@@ -1,7 +1,7 @@
 # Commango
 
 ## What is this?
-Commango is a Daemon to monitor a serial port for 3D printers. 
+Commango is a Daemon to monitor a serial port for 3D printers. This is a module of MangoOS
 
 ## Features
 
