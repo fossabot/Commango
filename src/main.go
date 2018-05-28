@@ -2,7 +2,7 @@
 * @Author: Ximidar
 * @Date:   2018-05-27 17:44:35
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-05-27 23:15:49
+* @Last Modified time: 2018-05-27 23:19:03
 */
 
 package main
@@ -36,7 +36,7 @@ func main() {
     defer comm.Close_Comm()
 
     for count := 0; count < 10; count += 1{
-        message := fmt.Sprintf("Hello at time: %v\n", time.Now())
+        message := fmt.Sprintf("Hello at count: %v\n", count)
         _, err = comm.Write_Comm_String(message)
     
         out, err := ReadLine(comm.Port)
