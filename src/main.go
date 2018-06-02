@@ -2,7 +2,7 @@
 * @Author: Ximidar
 * @Date:   2018-05-27 17:44:35
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-05-27 23:19:03
+* @Last Modified time: 2018-06-02 14:51:12
  */
 
 package main
@@ -15,6 +15,8 @@ import (
 	"os"
 	"time"
 )
+
+var COMM_OPEN bool
 
 func main() {
 
@@ -29,27 +31,51 @@ func main() {
 	}
 
 	err = comm.Open_Comm()
+    COMM_OPEN = true
 
 	if err != nil {
 		fmt.Println("Cannot open port")
 	}
-	defer comm.Close_Comm()
 
-	for count := 0; count < 10; count += 1 {
-		message := fmt.Sprintf("Hello at count: %v\n", count)
-		_, err = comm.Write_Comm_String(message)
 
-		out, err := ReadLine(comm.Port)
+    go Read_Forever(comm.Port)
 
-		if err != nil {
-			fmt.Println(err)
-		} else {
-			//fmt.Println(out)
-			fmt.Println(string(out))
-		}
+	go Write_Forever(comm)
 
-	}
+    fmt.Println("Sleeping")
+    time.Sleep(5 * time.Second)
+    COMM_OPEN = false
+    comm.Close_Comm()
+    fmt.Println("Finished")
 
+}
+
+func Read_Forever(r io.Reader){
+
+    for COMM_OPEN{
+        out, err := ReadLine(r)
+        if err != nil{
+            if err != io.EOF{
+                fmt.Println(err)
+            } 
+        } else {
+            fmt.Println(string(out))
+        }
+    }
+    
+}
+
+func Write_Forever(comm *commango.Comm){
+    count := 0
+    for COMM_OPEN{
+        message := fmt.Sprintf("Hello at count: %v\n", count)
+        _, err := comm.Write_Comm_String(message)
+        if err != nil {
+            fmt.Println(err)
+        } 
+        count += 1
+        time.Sleep(25 * time.Millisecond)
+    }
 }
 
 func ReadLine(r io.Reader) (out []byte, err error) {
@@ -58,7 +84,7 @@ func ReadLine(r io.Reader) (out []byte, err error) {
 		read, err := ReadWithTimeout(r, 1)
 
 		if err != nil {
-			fmt.Println("Readline errored out", err)
+			//fmt.Println("Readline errored out", err)
 			return nil, err
 		}
 
