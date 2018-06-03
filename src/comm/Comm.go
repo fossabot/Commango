@@ -2,7 +2,7 @@
 * @Author: matt
 * @Date:   2018-05-25 15:58:30
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-06-02 21:44:18
+* @Last Modified time: 2018-06-02 22:45:22
  */
 
 package commango
@@ -67,7 +67,9 @@ func (comm *Comm) Close_Comm() (err error) {
 }
 
 func (comm *Comm) Write_Comm_String(message string) (len_written int, err error) {
-    fmt.Println("Writing to Comm Port", message)
+    log_message := strings.Replace(message, "\n", "", -1)
+    log_message = fmt.Sprintf("SENT: %v", log_message)
+    fmt.Println(log_message)
     byte_message := []byte(message)
     expected_write := len(byte_message)
     len_written, err = comm.Port.Write(byte_message)

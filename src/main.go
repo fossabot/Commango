@@ -2,7 +2,7 @@
 * @Author: Ximidar
 * @Date:   2018-05-27 17:44:35
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-06-02 22:01:33
+* @Last Modified time: 2018-06-02 23:28:26
  */
 
 package main
@@ -13,6 +13,7 @@ import (
     "io"
     "os"
     "time"
+    "strings"
 )
 
 var COMM_OPEN bool
@@ -43,7 +44,7 @@ func main() {
     go Write_Forever(comm)
 
     fmt.Println("Sleeping")
-    time.Sleep(5 * time.Second)
+    time.Sleep(2 * time.Second)
     COMM_OPEN = false
     
     fmt.Println("Finished")
@@ -56,12 +57,29 @@ func Read_Forever(comm *commango.Comm){
         out, err := comm.ReadLine()
         if err != nil{
             if err != io.EOF{
-                fmt.Println(err)
+                fmt.Printf("%v", err)
             } 
         } else {
-            fmt.Printf(string(out))
+            string_out := string(out)
+            string_out = strings.Replace(string_out, "\n", "", -1)
+
+            
+            if !check_blank(out){
+                string_out = fmt.Sprintf("RECV: %v", string_out)
+                fmt.Println(string_out)
+            }
+            
         }
     }
+    fmt.Println("Stopping the reading")
+}
+
+func check_blank(byte_slice []byte) bool {
+    if len(byte_slice) > 2{
+        return false
+    }
+
+    return true
     
 }
 
@@ -76,5 +94,6 @@ func Write_Forever(comm *commango.Comm){
         count += 1
         time.Sleep(25 * time.Millisecond)
     }
+    fmt.Println("Stopping the writing")
 }
 
