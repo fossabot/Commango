@@ -2,14 +2,14 @@
 * @Author: Ximidar
 * @Date:   2018-05-27 17:44:35
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-06-03 00:09:45
+* @Last Modified time: 2018-07-07 13:29:39
  */
 
 package main
 
 import (
 	"fmt"
-	"github.com/Commango/src/comm"
+	"github.com/ximidar/Commango/src/comm"
 	"io"
 	"os"
 	"strings"
