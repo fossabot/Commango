@@ -2,55 +2,68 @@
 * @Author: matt
 * @Date:   2018-05-25 15:58:30
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-07-22 12:16:00
+* @Last Modified time: 2018-07-22 13:15:36
  */
 
-package comm
+package commango
 
 import (
 	_ "encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/jacobsa/go-serial/serial"
-	"io"
+	"log"
+	"go.bug.st/serial.v1" //https://godoc.org/go.bug.st/serial.v1
+	_"io"
 	"strings"
 	"time"
 )
 
-type (
-	Comm struct {
-		options    serial.OpenOptions
-		Last_Read  string
-		Last_Write string
+type Comm struct {
+	options    *serial.Mode
+	Available_Ports []string
+	Port_Path string
+	Port             serial.Port
 
-		finished_reading bool
-		Port             io.ReadWriteCloser
-	}
-)
+
+	Last_Read  string
+	Last_Write string
+
+	finished_reading bool
+	
+}
 
 func New_Comm() *Comm {
 	comm := new(Comm)
 	return comm
 }
 
-func (comm *Comm) Init_Comm(port_path string, baud uint, data_bits uint, stop_bits uint) (err error) {
-	//TODO explore other serial.OpenOptions
-	comm.options = serial.OpenOptions{
-		PortName:              port_path,
-		BaudRate:              baud,
-		DataBits:              data_bits,
-		StopBits:              stop_bits,
-		MinimumReadSize:       0,
-		InterCharacterTimeout: 1000,
-		ParityMode:            serial.PARITY_NONE,
-	}
+func (comm *Comm) Init_Comm(port_path string, baud int) {
 
-	return
+	comm.Port_Path = port_path
+	comm.options = &serial.Mode{
+		BaudRate: baud,
+		Parity: serial.EvenParity,
+		DataBits: 7,
+		StopBits: serial.OneStopBit, 
+
+	}
+}
+
+func (comm *Comm) Get_Available_Ports() []string{
+	ports, err := serial.GetPortsList()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(ports) == 0 {
+		log.Fatal("No serial ports found!")
+	}
+	comm.Available_Ports = ports
+	return ports
 }
 
 func (comm *Comm) Open_Comm() (err error) {
-	fmt.Printf("Opening port with address %v\n", comm.options.PortName)
-	comm.Port, err = serial.Open(comm.options)
+	fmt.Printf("Opening port with address %v\n", comm.Port_Path)
+	comm.Port, err = serial.Open(comm.Port_Path, comm.options)
 	if err != nil {
 		fmt.Println("Error Could not open port", err)
 	}
@@ -60,7 +73,7 @@ func (comm *Comm) Open_Comm() (err error) {
 }
 
 func (comm *Comm) Close_Comm() (err error) {
-	fmt.Printf("Closing port with address %s\n", comm.options.PortName)
+	fmt.Printf("Closing port with address %s\n", comm.Port_Path)
 	comm.Port.Close()
 	return
 }
@@ -116,7 +129,10 @@ func (comm *Comm) ReadWithTimeout(n int) ([]byte, error) {
 	buf := make([]byte, n)
 	done := make(chan error)
 	readAndCallBack := func() {
-		_, err := io.ReadAtLeast(comm.Port, buf, n)
+		bytes_read, err := comm.Port.Read(buf)
+		if bytes_read != n{
+			log.Println(fmt.Sprintf("Read: %v Expexted: %v", bytes_read, n))
+		}
 		done <- err
 	}
 

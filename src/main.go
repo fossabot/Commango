@@ -2,7 +2,7 @@
 * @Author: Ximidar
 * @Date:   2018-05-27 17:44:35
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-07-21 15:06:00
+* @Last Modified time: 2018-07-22 13:15:58
  */
 package main
 
@@ -23,20 +23,26 @@ func main() {
 
 	comm := commango.New_Comm()
 
-	err := comm.Init_Comm("/dev/ttyACM0", 115200, 8, 1)
-
-	if err != nil {
-		fmt.Println(err)
-		fmt.Println("Cannot assign options")
-		os.Exit(2)
+	comm.Get_Available_Ports()
+	for port_num, port := range comm.Available_Ports{
+		fmt.Println(port_num, port)
 	}
 
-	err = comm.Open_Comm()
+	comm.Init_Comm("/dev/ttyACM0", 115200)
+
+	err := comm.Open_Comm()
 	COMM_OPEN = true
 
 	if err != nil {
 		fmt.Println("Cannot open port")
 	}
+
+	comm.Port.SetDTR(false)
+	time.Sleep(2 * time.Second)
+	comm.Port.SetDTR(true)
+	time.Sleep(2 * time.Second)
+
+
 	defer comm.Close_Comm()
 
 	go Read_Forever(comm)
@@ -47,6 +53,7 @@ func main() {
 	time.Sleep(2 * time.Second)
 
 	fmt.Println("Finished")
+	os.Exit(0)
 
 }
 
