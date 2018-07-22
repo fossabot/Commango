@@ -2,9 +2,8 @@
 * @Author: Ximidar
 * @Date:   2018-05-27 17:44:35
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-07-07 13:29:39
+* @Last Modified time: 2018-07-21 15:06:00
  */
-
 package main
 
 import (
@@ -15,6 +14,8 @@ import (
 	"strings"
 	"time"
 )
+
+
 
 var COMM_OPEN bool
 

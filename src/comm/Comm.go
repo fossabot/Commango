@@ -2,10 +2,10 @@
 * @Author: matt
 * @Date:   2018-05-25 15:58:30
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-06-03 00:09:12
+* @Last Modified time: 2018-07-22 12:16:00
  */
 
-package commango
+package comm
 
 import (
 	_ "encoding/hex"
