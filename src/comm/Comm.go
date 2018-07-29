@@ -2,7 +2,7 @@
 * @Author: matt
 * @Date:   2018-05-25 15:58:30
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-07-22 13:41:19
+* @Last Modified time: 2018-07-28 22:50:21
  */
 
 package commango
@@ -14,6 +14,7 @@ import (
 	"log"
 	"go.bug.st/serial.v1" //https://godoc.org/go.bug.st/serial.v1
 	"go.bug.st/serial.v1/enumerator"
+	"github.com/godbus/dbus"
 	_"io"
 	"strings"
 	"time"
@@ -39,7 +40,7 @@ func New_Comm() *Comm {
 	return comm
 }
 
-func (comm *Comm) Init_Comm(port_path string, baud int) {
+func (comm *Comm) Init_Comm(port_path string, baud int) (*dbus.Error) {
 
 	comm.Port_Path = port_path
 	comm.options = &serial.Mode{
@@ -47,20 +48,31 @@ func (comm *Comm) Init_Comm(port_path string, baud int) {
 		Parity: serial.EvenParity,
 		DataBits: 7,
 		StopBits: serial.OneStopBit, 
-
 	}
+	comm.Print_Options()
+	return nil
 }
 
-func (comm *Comm) Get_Available_Ports() []string{
+func (comm Comm) Print_Options(){
+	fmt.Println("Comm Options:")
+	fmt.Println("|  Port Path:", comm.Port_Path)
+	fmt.Println("|  Serial Options:")
+	fmt.Println("|  |  Baud Rate:", comm.options.BaudRate)
+	fmt.Println("|  |  Parity:", comm.options.Parity)
+	fmt.Println("|  |  Data Bits:", comm.options.DataBits)
+	fmt.Println("|  |  Stop Bits:", comm.options.StopBits)
+}
+
+func (comm *Comm) Get_Available_Ports() ([]string, *dbus.Error){
 	ports, err := serial.GetPortsList()
 	if err != nil {
 		log.Fatal(err)
 	}
 	if len(ports) == 0 {
-		log.Fatal("No serial ports found!")
+		ports = []string{string("none")}
 	}
 	comm.Available_Ports = ports
-	return ports
+	return ports, nil
 }
 
 func (comm *Comm) Get_Detailed_Ports() {
@@ -83,38 +95,59 @@ func (comm *Comm) Get_Detailed_Ports() {
 	comm.Detailed_Ports = ports
 }
 
-func (comm *Comm) Open_Comm() (err error) {
+// Do a little error checking for good start
+func (comm Comm) PreCheck() (ready bool){
+	ready = true
+	if comm.Port_Path == ""{
+		ready = false
+	}
+	return
+}
+
+func (comm *Comm) Open_Comm() (*dbus.Error) {
+
+	// Do a Precheck before starting
+	if !comm.PreCheck(){
+		fmt.Println("Precheck Failed!")
+		return dbus.MakeFailedError(errors.New("Precheck Failed, Please initialize the comm before trying to open it."))
+	}
+
+	var err error
 	fmt.Printf("Opening port with address %v\n", comm.Port_Path)
 	comm.Port, err = serial.Open(comm.Port_Path, comm.options)
 	if err != nil {
 		fmt.Println("Error Could not open port", err)
+		return dbus.MakeFailedError(err)
 	}
 	// Sleep to allow the port to start up
 	time.Sleep(20 * time.Millisecond)
-	return
+	return nil
 }
 
-func (comm *Comm) Close_Comm() (err error) {
+func (comm *Comm) Close_Comm() (*dbus.Error) {
 	fmt.Printf("Closing port with address %s\n", comm.Port_Path)
 	comm.Port.Close()
-	return
+	return nil
 }
 
-func (comm *Comm) Write_Comm_String(message string) (len_written int, err error) {
+func (comm *Comm) Write_Comm_String(message string) (int, *dbus.Error) {
 	log_message := strings.Replace(message, "\n", "", -1)
 	log_message = fmt.Sprintf("SENT: %v", log_message)
 	fmt.Println(log_message)
 	byte_message := []byte(message)
 	expected_write := len(byte_message)
-	len_written, err = comm.Port.Write(byte_message)
+	len_written, err := comm.Port.Write(byte_message)
 	if err == nil {
 		comm.Last_Write = message
+	} else {
+		return len_written, dbus.MakeFailedError(err)
 	}
 	if len_written != expected_write {
 		fmt.Println("Didn't write expected amount of bytes")
 		fmt.Printf("Written: %v Expected: %v", len_written, expected_write)
+		return len_written, dbus.MakeFailedError(errors.New("Expected Bytes did not match written"))
 	}
-	return
+	return len_written, dbus.MakeFailedError(err)
 }
 
 func (comm *Comm) Write_Comm_Array(message []string) (len_written int, err error) {

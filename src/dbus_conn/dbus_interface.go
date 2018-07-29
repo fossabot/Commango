@@ -2,7 +2,7 @@
 * @Author: Ximidar
 * @Date:   2018-07-28 11:10:37
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-07-28 19:48:00
+* @Last Modified time: 2018-07-28 22:40:53
 */
 
 package dbus_conn
@@ -13,27 +13,36 @@ import (
 	"github.com/godbus/dbus/introspect"
 	"os"
 	"strings"
+	"github.com/ximidar/Commango/src/comm"
 
 )
 
 type DbusConn struct{
+
+	//dbus stuff
 	Name string
 	Program string
 	FullName string
 	FullNamePath string
+	Counter int
 	FullNameObjectPath dbus.ObjectPath
 
 	SessionBus *dbus.Conn
+
+	//comm connection
+	Comm *commango.Comm
 }
 
 func New_DbusConn() *DbusConn{
-	dconn := new(DbusConn)
 
+	// Create a new DBUS Connection
+	dconn := new(DbusConn)
 	dconn.Name = "commango"
 	dconn.Program = "com.mango_core"
 	dconn.FullName = dconn.Program + "." + dconn.Name
 	dconn.FullNamePath = "/" + strings.Replace(dconn.FullName, ".", "/", -1)
 	dconn.FullNameObjectPath = dbus.ObjectPath(dconn.FullNamePath)
+	dconn.Counter = 0
 
 	var err error
 	dconn.SessionBus, err = dbus.SessionBus()
@@ -41,6 +50,11 @@ func New_DbusConn() *DbusConn{
 		fmt.Fprintln(os.Stderr, "Failed to connect to session bus:", err)
 		panic(err)
 	}
+
+	// Make a new COMM Object
+	dconn.Comm = commango.New_Comm()
+
+	// Connect the COMM Object to the Dbus interface
 	dconn.MakeName()
 	return dconn
 }
@@ -92,21 +106,22 @@ func (dconn *DbusConn) Make_Functions()(err error){
 	connection_info_xml := `
 <node>
 	<interface name="` + dconn.FullName + `">
-		<method name="Get_Connection_info">
-			<arg direction="out" type="s"/>
+		<method name="Get_Available_Ports">
+			<arg direction="out" type="as"/>
 		</method>
+		<method name="Init_Comm">
+			<arg name="port_path" direction="in" type="s"/>
+			<arg name="baud" direction="in" type="i"/>
+		</method>
+		<method name="Open_Comm"/>
 	</interface>` + introspect.IntrospectDataString + `
 </node> `
-	err = dconn.SessionBus.Export(dconn, dconn.FullNameObjectPath, dconn.FullName)
+	err = dconn.SessionBus.Export(dconn.Comm, dconn.FullNameObjectPath, dconn.FullName)
 	err = dconn.SessionBus.Export(introspect.Introspectable(connection_info_xml), dconn.FullNameObjectPath, "org.freedesktop.DBus.Introspectable")
 
 	if err != nil{
-		fmt.Println("AHHHHHHHHHHHHHH")
+		fmt.Println("Comm Object could not be attached to Dbus")
 		return err
 	}
 	return
-}
-
-func (dconn DbusConn) Get_Connection_info() (string, *dbus.Error){
-	return "Hello This is a test!", nil
 }
