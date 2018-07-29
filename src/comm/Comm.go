@@ -2,7 +2,7 @@
 * @Author: matt
 * @Date:   2018-05-25 15:58:30
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-07-22 13:15:36
+* @Last Modified time: 2018-07-22 13:41:19
  */
 
 package commango
@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 	"go.bug.st/serial.v1" //https://godoc.org/go.bug.st/serial.v1
+	"go.bug.st/serial.v1/enumerator"
 	_"io"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 type Comm struct {
 	options    *serial.Mode
 	Available_Ports []string
+	Detailed_Ports []*enumerator.PortDetails
 	Port_Path string
 	Port             serial.Port
 
@@ -59,6 +61,26 @@ func (comm *Comm) Get_Available_Ports() []string{
 	}
 	comm.Available_Ports = ports
 	return ports
+}
+
+func (comm *Comm) Get_Detailed_Ports() {
+	ports, err := enumerator.GetDetailedPortsList()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if len(ports) == 0 {
+		fmt.Println("No serial ports found!")
+		return
+	}
+	for _, port := range ports {
+		fmt.Printf("Found port: %s\n", port.Name)
+		if port.IsUSB {
+			fmt.Printf("   USB ID     %s:%s\n", port.VID, port.PID)
+			fmt.Printf("   USB serial %s\n", port.SerialNumber)
+		}
+	}
+
+	comm.Detailed_Ports = ports
 }
 
 func (comm *Comm) Open_Comm() (err error) {

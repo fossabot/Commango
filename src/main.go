@@ -2,13 +2,14 @@
 * @Author: Ximidar
 * @Date:   2018-05-27 17:44:35
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-07-22 13:15:58
+* @Last Modified time: 2018-07-28 18:38:26
  */
 package main
 
 import (
 	"fmt"
 	"github.com/ximidar/Commango/src/comm"
+	"github.com/ximidar/Commango/src/dbus_conn"
 	"io"
 	"os"
 	"strings"
@@ -21,36 +22,45 @@ var COMM_OPEN bool
 
 func main() {
 
-	comm := commango.New_Comm()
+	//comm := commango.New_Comm()
+	dconn := dbus_conn.New_DbusConn()
 
-	comm.Get_Available_Ports()
-	for port_num, port := range comm.Available_Ports{
-		fmt.Println(port_num, port)
-	}
+	
+	dconn.Init_Services()
+	dconn.ListNames()
 
-	comm.Init_Comm("/dev/ttyACM0", 115200)
+	// comm.Get_Available_Ports()
+	// comm.Get_Detailed_Ports()
+	// for port_num, port := range comm.Available_Ports{
+	// 	fmt.Println(port_num, port)
+	// }
 
-	err := comm.Open_Comm()
-	COMM_OPEN = true
+	fmt.Println("Serving", dconn.FullName, dconn.FullNamePath)
+	select{}
 
-	if err != nil {
-		fmt.Println("Cannot open port")
-	}
+	// comm.Init_Comm("/dev/ttyACM0", 115200)
 
-	comm.Port.SetDTR(false)
-	time.Sleep(2 * time.Second)
-	comm.Port.SetDTR(true)
-	time.Sleep(2 * time.Second)
+	// err := comm.Open_Comm()
+	// COMM_OPEN = true
+
+	// if err != nil {
+	// 	fmt.Println("Cannot open port")
+	// }
+
+	// comm.Port.SetDTR(false)
+	// time.Sleep(2 * time.Second)
+	// comm.Port.SetDTR(true)
+	// time.Sleep(2 * time.Second)
 
 
-	defer comm.Close_Comm()
+	// defer comm.Close_Comm()
 
-	go Read_Forever(comm)
-	go Write_Forever(comm)
+	// go Read_Forever(comm)
+	// go Write_Forever(comm)
 
-	time.Sleep(2 * time.Second)
-	COMM_OPEN = false
-	time.Sleep(2 * time.Second)
+	// time.Sleep(2 * time.Second)
+	// COMM_OPEN = false
+	// time.Sleep(2 * time.Second)
 
 	fmt.Println("Finished")
 	os.Exit(0)
