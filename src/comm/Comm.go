@@ -11,28 +11,26 @@ import (
 	_ "encoding/hex"
 	"errors"
 	"fmt"
-	"log"
+	"github.com/godbus/dbus"
 	"go.bug.st/serial.v1" //https://godoc.org/go.bug.st/serial.v1
 	"go.bug.st/serial.v1/enumerator"
-	"github.com/godbus/dbus"
-	_"io"
+	_ "io"
+	"log"
 	"strings"
 	"time"
 )
 
 type Comm struct {
-	options    *serial.Mode
+	options         *serial.Mode
 	Available_Ports []string
-	Detailed_Ports []*enumerator.PortDetails
-	Port_Path string
-	Port             serial.Port
-
+	Detailed_Ports  []*enumerator.PortDetails
+	Port_Path       string
+	Port            serial.Port
 
 	Last_Read  string
 	Last_Write string
 
 	finished_reading bool
-	
 }
 
 func New_Comm() *Comm {
@@ -40,20 +38,20 @@ func New_Comm() *Comm {
 	return comm
 }
 
-func (comm *Comm) Init_Comm(port_path string, baud int) (*dbus.Error) {
+func (comm *Comm) Init_Comm(port_path string, baud int) *dbus.Error {
 
 	comm.Port_Path = port_path
 	comm.options = &serial.Mode{
 		BaudRate: baud,
-		Parity: serial.EvenParity,
+		Parity:   serial.EvenParity,
 		DataBits: 7,
-		StopBits: serial.OneStopBit, 
+		StopBits: serial.OneStopBit,
 	}
 	comm.Print_Options()
 	return nil
 }
 
-func (comm Comm) Print_Options(){
+func (comm Comm) Print_Options() {
 	fmt.Println("Comm Options:")
 	fmt.Println("|  Port Path:", comm.Port_Path)
 	fmt.Println("|  Serial Options:")
@@ -63,7 +61,7 @@ func (comm Comm) Print_Options(){
 	fmt.Println("|  |  Stop Bits:", comm.options.StopBits)
 }
 
-func (comm *Comm) Get_Available_Ports() ([]string, *dbus.Error){
+func (comm *Comm) Get_Available_Ports() ([]string, *dbus.Error) {
 	ports, err := serial.GetPortsList()
 	if err != nil {
 		log.Fatal(err)
@@ -96,18 +94,18 @@ func (comm *Comm) Get_Detailed_Ports() {
 }
 
 // Do a little error checking for good start
-func (comm Comm) PreCheck() (ready bool){
+func (comm Comm) PreCheck() (ready bool) {
 	ready = true
-	if comm.Port_Path == ""{
+	if comm.Port_Path == "" {
 		ready = false
 	}
 	return
 }
 
-func (comm *Comm) Open_Comm() (*dbus.Error) {
+func (comm *Comm) Open_Comm() *dbus.Error {
 
 	// Do a Precheck before starting
-	if !comm.PreCheck(){
+	if !comm.PreCheck() {
 		fmt.Println("Precheck Failed!")
 		return dbus.MakeFailedError(errors.New("Precheck Failed, Please initialize the comm before trying to open it."))
 	}
@@ -124,7 +122,7 @@ func (comm *Comm) Open_Comm() (*dbus.Error) {
 	return nil
 }
 
-func (comm *Comm) Close_Comm() (*dbus.Error) {
+func (comm *Comm) Close_Comm() *dbus.Error {
 	fmt.Printf("Closing port with address %s\n", comm.Port_Path)
 	comm.Port.Close()
 	return nil
@@ -185,7 +183,7 @@ func (comm *Comm) ReadWithTimeout(n int) ([]byte, error) {
 	done := make(chan error)
 	readAndCallBack := func() {
 		bytes_read, err := comm.Port.Read(buf)
-		if bytes_read != n{
+		if bytes_read != n {
 			log.Println(fmt.Sprintf("Read: %v Expexted: %v", bytes_read, n))
 		}
 		done <- err

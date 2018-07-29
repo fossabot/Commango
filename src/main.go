@@ -16,8 +16,6 @@ import (
 	"time"
 )
 
-
-
 var COMM_OPEN bool
 
 func main() {
@@ -25,7 +23,6 @@ func main() {
 	//comm := commango.New_Comm()
 	dconn := dbus_conn.New_DbusConn()
 
-	
 	dconn.Init_Services()
 	dconn.ListNames()
 
@@ -36,7 +33,7 @@ func main() {
 	// }
 
 	fmt.Println("Serving", dconn.FullName, dconn.FullNamePath)
-	select{}
+	select {}
 
 	// comm.Init_Comm("/dev/ttyACM0", 115200)
 
@@ -51,7 +48,6 @@ func main() {
 	// time.Sleep(2 * time.Second)
 	// comm.Port.SetDTR(true)
 	// time.Sleep(2 * time.Second)
-
 
 	// defer comm.Close_Comm()
 
