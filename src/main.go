@@ -2,108 +2,28 @@
 * @Author: Ximidar
 * @Date:   2018-05-27 17:44:35
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-07-28 18:38:26
+* @Last Modified time: 2018-07-29 17:16:42
  */
 package main
 
 import (
 	"fmt"
-	"github.com/ximidar/Commango/src/comm"
 	"github.com/ximidar/Commango/src/dbus_conn"
-	"io"
 	"os"
-	"strings"
-	"time"
 )
 
 var COMM_OPEN bool
 
 func main() {
-
-	//comm := commango.New_Comm()
 	dconn := dbus_conn.New_DbusConn()
 
 	dconn.Init_Services()
-	dconn.ListNames()
-
-	// comm.Get_Available_Ports()
-	// comm.Get_Detailed_Ports()
-	// for port_num, port := range comm.Available_Ports{
-	// 	fmt.Println(port_num, port)
-	// }
 
 	fmt.Println("Serving", dconn.FullName, dconn.FullNamePath)
 	select {}
-
-	// comm.Init_Comm("/dev/ttyACM0", 115200)
-
-	// err := comm.Open_Comm()
-	// COMM_OPEN = true
-
-	// if err != nil {
-	// 	fmt.Println("Cannot open port")
-	// }
-
-	// comm.Port.SetDTR(false)
-	// time.Sleep(2 * time.Second)
-	// comm.Port.SetDTR(true)
-	// time.Sleep(2 * time.Second)
-
-	// defer comm.Close_Comm()
-
-	// go Read_Forever(comm)
-	// go Write_Forever(comm)
-
-	// time.Sleep(2 * time.Second)
-	// COMM_OPEN = false
-	// time.Sleep(2 * time.Second)
 
 	fmt.Println("Finished")
 	os.Exit(0)
 
 }
 
-func Read_Forever(comm *commango.Comm) {
-
-	for COMM_OPEN {
-		out, err := comm.ReadLine()
-		if err != nil {
-			if err != io.EOF {
-				fmt.Printf("%v", err)
-			}
-		} else {
-			string_out := string(out)
-			string_out = strings.Replace(string_out, "\n", "", -1)
-
-			if !check_blank(out) {
-				string_out = fmt.Sprintf("RECV: %v", string_out)
-				fmt.Println(string_out)
-			}
-
-		}
-	}
-	fmt.Println("Stopping the reading")
-}
-
-func check_blank(byte_slice []byte) bool {
-	if len(byte_slice) > 2 {
-		return false
-	}
-
-	return true
-
-}
-
-func Write_Forever(comm *commango.Comm) {
-	count := 0
-	for COMM_OPEN {
-		message := fmt.Sprintf("Hello at count: %v\n", count)
-		_, err := comm.Write_Comm_String(message)
-		if err != nil {
-			fmt.Println(err)
-		}
-		count += 1
-		time.Sleep(25 * time.Millisecond)
-	}
-	fmt.Println("Stopping the writing")
-}

@@ -2,7 +2,7 @@
 * @Author: Ximidar
 * @Date:   2018-07-28 11:10:37
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-07-28 22:40:53
+* @Last Modified time: 2018-08-26 14:30:31
  */
 
 package dbus_conn
@@ -14,6 +14,7 @@ import (
 	"github.com/ximidar/Commango/src/comm"
 	"os"
 	"strings"
+	
 )
 
 type DbusConn struct {
@@ -50,8 +51,10 @@ func New_DbusConn() *DbusConn {
 		panic(err)
 	}
 
+	dconn.SessionBus.Hello()
+
 	// Make a new COMM Object
-	dconn.Comm = commango.New_Comm()
+	dconn.Comm = commango.New_Comm(dconn.Emit_Line)
 
 	// Connect the COMM Object to the Dbus interface
 	dconn.MakeName()
@@ -112,7 +115,15 @@ func (dconn *DbusConn) Make_Functions() (err error) {
 			<arg name="port_path" direction="in" type="s"/>
 			<arg name="baud" direction="in" type="i"/>
 		</method>
+		<method name="Write_Comm">
+			<arg name="message" direction="in" type="s"/>
+			<arg direction="out" type="i"/>
+		</method>
 		<method name="Open_Comm"/>
+		<method name="Close_Comm"/>
+		<signal name="Read_Comm">
+          <arg name="line" type="s"/>
+        </signal>
 	</interface>` + introspect.IntrospectDataString + `
 </node> `
 	err = dconn.SessionBus.Export(dconn.Comm, dconn.FullNameObjectPath, dconn.FullName)
@@ -123,4 +134,14 @@ func (dconn *DbusConn) Make_Functions() (err error) {
 		return err
 	}
 	return
+}
+
+func (dconn *DbusConn) Emit_Line(line string){
+	//Emit(path ObjectPath, name string, values ...interface{})
+	fmt.Println("Emmiting", line)
+	name := dconn.FullName + ".Read_Comm"
+	err := dconn.SessionBus.Emit(dconn.FullNameObjectPath, name, string(line))
+	if err != nil{
+		fmt.Printf("Could not emit %v \n err: %v", line, err)
+	}
 }
