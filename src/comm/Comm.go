@@ -2,7 +2,7 @@
 * @Author: matt
 * @Date:   2018-05-25 15:58:30
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-07-29 20:38:39
+* @Last Modified time: 2018-09-02 00:35:22
  */
 
 package commango
@@ -11,7 +11,6 @@ import (
 	_ "encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/godbus/dbus"
 	"go.bug.st/serial.v1" //https://godoc.org/go.bug.st/serial.v1
 	"go.bug.st/serial.v1/enumerator"
 	"io"
@@ -42,7 +41,7 @@ func New_Comm(passer Pass_Line) *Comm {
 	return comm
 }
 
-func (comm *Comm) Init_Comm(port_path string, baud int) *dbus.Error {
+func (comm *Comm) Init_Comm(port_path string, baud int) error {
 
 	comm.Port_Path = port_path
 	comm.options = &serial.Mode{
@@ -65,10 +64,10 @@ func (comm Comm) Print_Options() {
 	fmt.Println("|  |  Stop Bits:", comm.options.StopBits)
 }
 
-func (comm *Comm) Get_Available_Ports() ([]string, *dbus.Error) {
+func (comm *Comm) Get_Available_Ports() ([]string, error) {
 	ports, err := serial.GetPortsList()
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	if len(ports) == 0 {
 		ports = []string{string("none")}
@@ -106,12 +105,12 @@ func (comm Comm) PreCheck() (ready bool) {
 	return
 }
 
-func (comm *Comm) Open_Comm() *dbus.Error {
+func (comm *Comm) Open_Comm() error {
 
 	// Do a Precheck before starting
 	if !comm.PreCheck() {
 		fmt.Println("Precheck Failed!")
-		return dbus.MakeFailedError(errors.New("Precheck Failed, Please initialize the comm before trying to open it."))
+		return errors.New("Precheck Failed, Please initialize the comm before trying to open it.")
 	}
 
 	var err error
@@ -119,7 +118,7 @@ func (comm *Comm) Open_Comm() *dbus.Error {
 	comm.Port, err = serial.Open(comm.Port_Path, comm.options)
 	if err != nil {
 		fmt.Println("Error Could not open port", err)
-		return dbus.MakeFailedError(err)
+		return err
 	}
 	// Sleep to allow the port to start up
 	time.Sleep(20 * time.Millisecond)
@@ -130,18 +129,18 @@ func (comm *Comm) Open_Comm() *dbus.Error {
 	return nil
 }
 
-func (comm *Comm) Close_Comm() *dbus.Error {
+func (comm *Comm) Close_Comm() error {
 	fmt.Printf("Closing port with address %s\n", comm.Port_Path)
 	err := comm.Port.Close()
 	if err != nil{
 		fmt.Println("Could not close port")
-		return dbus.MakeFailedError(err)
+		return err
 	}
 	comm.PortOpen = false
 	return nil
 }
 
-func (comm *Comm) Write_Comm(message string) (int, *dbus.Error) {
+func (comm *Comm) Write_Comm(message string) (int, error) {
 
 	// Setup log message
 	log_message := strings.Replace(message, "\n", "", -1)
@@ -158,12 +157,12 @@ func (comm *Comm) Write_Comm(message string) (int, *dbus.Error) {
 	expected_write := len(byte_message)
 	len_written, err := comm.Port.Write(byte_message)
 	if err != nil {
-		return len_written, dbus.MakeFailedError(err)
+		return len_written, err
 	}
 	if len_written != expected_write {
 		fmt.Println("Didn't write expected amount of bytes")
 		fmt.Printf("Written: %v Expected: %v", len_written, expected_write)
-		return len_written, dbus.MakeFailedError(errors.New("Expected Bytes did not match written"))
+		return len_written, errors.New("Expected Bytes did not match written")
 	}
 	return len_written, nil
 }
