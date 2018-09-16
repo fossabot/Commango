@@ -2,7 +2,7 @@
 * @Author: matt
 * @Date:   2018-05-25 15:58:30
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-09-02 00:35:22
+* @Last Modified time: 2018-09-15 17:07:58
  */
 
 package commango
@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-type Pass_Line func(string)
+type Read_Line_Callback func(string)
 
 type Comm struct {
 	options         *serial.Mode
@@ -29,12 +29,12 @@ type Comm struct {
 	Port            serial.Port
 	PortOpen        bool
 
-	Emit_Read       Pass_Line
+	Emit_Read       Read_Line_Callback
 
 	finished_reading bool
 }
 
-func New_Comm(passer Pass_Line) *Comm {
+func New_Comm(passer Read_Line_Callback) *Comm {
 	comm := new(Comm)
 	comm.PortOpen = false
 	comm.Emit_Read = passer

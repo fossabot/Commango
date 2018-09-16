@@ -2,7 +2,7 @@
 * @Author: Ximidar
 * @Date:   2018-07-28 11:10:37
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-09-02 17:49:46
+* @Last Modified time: 2018-09-15 18:12:02
  */
 
 package nats_conn
@@ -12,8 +12,9 @@ import (
 	"github.com/ximidar/Commango/src/comm"
 	ms "github.com/ximidar/mango_structures"
 	"github.com/nats-io/go-nats"
-	"os"
-	"strings"
+	_"os"
+	_"strings"
+	"log"
 	"encoding/json"
 	
 )
@@ -44,36 +45,43 @@ type NatsConn struct {
 func New_NatsConn() *NatsConn {
 
 	gnats := new(NatsConn)
-	gnats.nc, err := nats.Connect(nats.DefaultURL)
+	err := error(nil)
+	gnats.NC, err = nats.Connect(nats.DefaultURL)
 
 	if err != nil {
 		log.Fatalf("Can't connect: %v\n", err)
 	}
 
-	gnats.Comm = commango.New_Comm()
+	gnats.Comm = commango.New_Comm(gnats.Read_Line_Emitter)
+	gnats.create_req_replies()
 
 	return gnats
+}
+
+func (gnats *NatsConn) Serve(){
+	select{} //TODO make this select detect shutdown signals
 }
 
 
 func (gnats *NatsConn) create_req_replies() (error){
 	// req replies
-	gnats.nc.Subscribe(LIST_PORTS, gnats.list_ports)
-	gnats.nc.Subscribe(INIT_COMM, gnats.init_comm)
-	gnats.nc.Subscribe(CONNECT_COMM, gnats.connect_comm)
-	gnats.nc.Subscribe(DISTCONNECT_COMM, gnats.disconnect_comm)
-	gnats.nc.Subscribe(WRITE_COMM, gnats.write_comm)
+	gnats.NC.Subscribe(LIST_PORTS, gnats.list_ports)
+	gnats.NC.Subscribe(INIT_COMM, gnats.init_comm)
+	gnats.NC.Subscribe(CONNECT_COMM, gnats.connect_comm)
+	gnats.NC.Subscribe(DISTCONNECT_COMM, gnats.disconnect_comm)
+	gnats.NC.Subscribe(WRITE_COMM, gnats.write_comm)
+	return nil
 }
 
 func (gnats *NatsConn) list_ports(msg *nats.Msg) {
-	reply := new(ms.Reply)
+	reply := new(ms.Reply_JSON)
 	ports, err := gnats.Comm.Get_Available_Ports()
 	if err != nil{
 		reply.Success = false
-		reply.Message = err.Error()
+		reply.Message = []byte(err.Error())
 	} else {
 		reply.Success = true
-		reply.Message = json.Marshal(ports)
+		reply.Message, err = json.Marshal(ports)
 	}
 
 	m_reply, err := json.Marshal(reply)
@@ -83,20 +91,21 @@ func (gnats *NatsConn) list_ports(msg *nats.Msg) {
 		panic(err)
 	}
 
-	nc.Publish(msg.Reply, m_reply)
+	gnats.NC.Publish(msg.Reply, m_reply)
 }
 
 func (gnats *NatsConn) init_comm(msg *nats.Msg) {
 
-	reply := new(ms.Reply)
-	init_data := new(ms.Init_Comm)
-	u_init_data, err := json.Unmarshal(msg.Data, &init_data)
+	reply := new(ms.Reply_String)
+	u_init_data := new(ms.Init_Comm)
+	err := json.Unmarshal(msg.Data, &u_init_data)
 
 	// error out if we cannot unmarshal the data
 	if err != nil {
 		reply.Success = false
 		reply.Message = "could not unmarshal data"
-		nc.Publish(msg.Reply, []byte(reply))
+		rep_byte, _ :=  json.Marshal(reply)
+		gnats.NC.Publish(msg.Reply, rep_byte)
 		return
 	}
 
@@ -105,7 +114,8 @@ func (gnats *NatsConn) init_comm(msg *nats.Msg) {
 	if err != nil {
 		reply.Success = false
 		reply.Message = "Could Not Initialize Comm: " + err.Error()
-		nc.Publish(msg.Reply, []byte(reply))
+		rep_byte, _ :=  json.Marshal(reply)
+		gnats.NC.Publish(msg.Reply, rep_byte)
 		return
 	}
 
@@ -114,43 +124,62 @@ func (gnats *NatsConn) init_comm(msg *nats.Msg) {
 	reply.Message = "Comm Initialized"
 	m_reply, err := json.Marshal(reply)
 	if err != nil {panic(err)} // There should be no reason it can't marshal
-	nc.Publish(msg.Reply, m_reply)
+	gnats.NC.Publish(msg.Reply, m_reply)
 	
 }
 
 func (gnats *NatsConn) connect_comm(msg *nats.Msg) {
 	err := gnats.Comm.Open_Comm()
-	reply = new(Reply)
+	reply := new(ms.Reply_String)
 	if err != nil {
 		reply.Success = false
 		reply.Message = err.Error()
-		nc.Publish(msg.Reply, []byte(reply))
+		rep, _ := json.Marshal(reply)
+		gnats.NC.Publish(msg.Reply, rep)
 		return
 	} 
 	reply.Success = true
 	reply.Message = "Connected"
 	m_reply, err := json.Marshal(reply)
-	nc.Publish(msg.Reply, []byte(reply))
+	gnats.NC.Publish(msg.Reply, m_reply)
 }
 
 func (gnats *NatsConn) disconnect_comm(msg *nats.Msg) {
 	err := gnats.Comm.Close_Comm()
-	reply = new(Reply)
+	reply := new(ms.Reply_String)
 	if err != nil {
 		reply.Success = false
 		reply.Message = err.Error()
-		nc.Publish(msg.Reply, []byte(reply))
+		rep, _ := json.Marshal(reply)
+		gnats.NC.Publish(msg.Reply, rep)
 		return
 	} 
 	reply.Success = true
 	reply.Message = "Disconnected"
-	m_reply, err := json.Marshal(reply)
-	nc.Publish(msg.Reply, []byte(reply))
+	m_reply, _ := json.Marshal(reply)
+	gnats.NC.Publish(msg.Reply, m_reply)
 }
 
 func (gnats *NatsConn) write_comm(msg *nats.Msg) {
 	bytes_written, err := gnats.Comm.Write_Comm(string(msg.Data))
-	nc.Publish(msg.Reply, []byte(bytes_written))
+	reply := new(ms.Reply_String)
+
+	if err != nil{
+		reply.Success = false
+		reply.Message = err.Error()
+		rep, _ := json.Marshal(reply)
+		gnats.NC.Publish(msg.Reply, rep)
+	}
+
+	reply.Success = true
+	reply.Message = string(bytes_written)
+	m_reply, _ := json.Marshal(reply)
+
+	gnats.NC.Publish(msg.Reply, m_reply)
 }
 
+
+func (gnats *NatsConn) Read_Line_Emitter(line string){
+	fmt.Println(line)
+}
 
