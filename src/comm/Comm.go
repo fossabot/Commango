@@ -29,7 +29,7 @@ type Comm struct {
 	Port            serial.Port
 	PortOpen        bool
 
-	Emit_Read       Read_Line_Callback
+	Emit_Read Read_Line_Callback
 
 	finished_reading bool
 }
@@ -132,7 +132,7 @@ func (comm *Comm) Open_Comm() error {
 func (comm *Comm) Close_Comm() error {
 	fmt.Printf("Closing port with address %s\n", comm.Port_Path)
 	err := comm.Port.Close()
-	if err != nil{
+	if err != nil {
 		fmt.Println("Could not close port")
 		return err
 	}
@@ -148,7 +148,7 @@ func (comm *Comm) Write_Comm(message string) (int, error) {
 	fmt.Println(log_message)
 
 	// Check that message has an \n after it
-	if !strings.HasSuffix(message, "\n"){
+	if !strings.HasSuffix(message, "\n") {
 		message += "\n"
 	}
 
@@ -191,7 +191,7 @@ func (comm *Comm) ReadLine() (out []byte, err error) {
 
 }
 
-func (comm *Comm) ReadBytes(n int) ([]byte, error){
+func (comm *Comm) ReadBytes(n int) ([]byte, error) {
 	buf := make([]byte, n)
 	bytes_read, err := comm.Port.Read(buf)
 	if bytes_read != n {
@@ -237,13 +237,13 @@ func (comm *Comm) Read_Forever() {
 				fmt.Printf("%v", err)
 			}
 		} else {
-			string_out := string(out)	
+			string_out := string(out)
 
 			if !check_blank(out) {
 				comm.Emit_Read(string_out)
 				string_out = fmt.Sprintf("RECV: %v", string_out)
 				fmt.Print(string_out)
-				
+
 			}
 
 		}
