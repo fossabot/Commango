@@ -2,7 +2,7 @@
 * @Author: Ximidar
 * @Date:   2018-07-28 11:10:37
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-09-15 18:12:02
+* @Last Modified time: 2018-09-15 22:25:30
  */
 
 package nats_conn
@@ -14,6 +14,7 @@ import (
 	"github.com/nats-io/go-nats"
 	_"os"
 	_"strings"
+	"strconv"
 	"log"
 	"encoding/json"
 	
@@ -172,7 +173,7 @@ func (gnats *NatsConn) write_comm(msg *nats.Msg) {
 	}
 
 	reply.Success = true
-	reply.Message = string(bytes_written)
+	reply.Message = strconv.Itoa(bytes_written)
 	m_reply, _ := json.Marshal(reply)
 
 	gnats.NC.Publish(msg.Reply, m_reply)
@@ -180,6 +181,6 @@ func (gnats *NatsConn) write_comm(msg *nats.Msg) {
 
 
 func (gnats *NatsConn) Read_Line_Emitter(line string){
-	fmt.Println(line)
+	gnats.NC.Publish(READ_LINE, []byte(line))
 }
 
