@@ -2,7 +2,7 @@
 * @Author: matt
 * @Date:   2018-05-25 15:58:30
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-09-15 17:07:58
+* @Last Modified time: 2018-09-18 00:37:57
  */
 
 package commango
@@ -20,6 +20,7 @@ import (
 )
 
 type Read_Line_Callback func(string)
+type Emit_Write_Callback func(string)
 
 type Comm struct {
 	options         *serial.Mode
@@ -27,17 +28,19 @@ type Comm struct {
 	Detailed_Ports  []*enumerator.PortDetails
 	Port_Path       string
 	Port            serial.Port
-	PortOpen        bool
+	Connected        bool
 
 	Emit_Read Read_Line_Callback
+	Emit_Write Emit_Write_Callback
 
 	finished_reading bool
 }
 
-func New_Comm(passer Read_Line_Callback) *Comm {
+func New_Comm(read_line_callback Read_Line_Callback, write_line_callback Emit_Write_Callback) *Comm {
 	comm := new(Comm)
-	comm.PortOpen = false
-	comm.Emit_Read = passer
+	comm.Connected = false
+	comm.Emit_Read = read_line_callback
+	comm.Emit_Write = write_line_callback
 	return comm
 }
 
@@ -46,8 +49,8 @@ func (comm *Comm) Init_Comm(port_path string, baud int) error {
 	comm.Port_Path = port_path
 	comm.options = &serial.Mode{
 		BaudRate: baud,
-		Parity:   serial.EvenParity,
-		DataBits: 7,
+		Parity:   serial.NoParity,
+		DataBits: 8,
 		StopBits: serial.OneStopBit,
 	}
 	comm.Print_Options()
@@ -113,6 +116,11 @@ func (comm *Comm) Open_Comm() error {
 		return errors.New("Precheck Failed, Please initialize the comm before trying to open it.")
 	}
 
+	if comm.Connected{
+		fmt.Println("Comm is already connected")
+		return errors.New("Comm is already Connected")
+	}
+
 	var err error
 	fmt.Printf("Opening port with address %v\n", comm.Port_Path)
 	comm.Port, err = serial.Open(comm.Port_Path, comm.options)
@@ -122,7 +130,7 @@ func (comm *Comm) Open_Comm() error {
 	}
 	// Sleep to allow the port to start up
 	time.Sleep(20 * time.Millisecond)
-	comm.PortOpen = true
+	comm.Connected = true
 
 	// Start up a reader
 	go comm.Read_Forever()
@@ -131,12 +139,16 @@ func (comm *Comm) Open_Comm() error {
 
 func (comm *Comm) Close_Comm() error {
 	fmt.Printf("Closing port with address %s\n", comm.Port_Path)
-	err := comm.Port.Close()
-	if err != nil {
-		fmt.Println("Could not close port")
-		return err
+
+	if !comm.Connected{
+		err := comm.Port.Close()
+		if err != nil {
+			fmt.Println("Could not close port")
+			return err
+		}
 	}
-	comm.PortOpen = false
+
+	comm.Connected = false
 	return nil
 }
 
@@ -162,8 +174,11 @@ func (comm *Comm) Write_Comm(message string) (int, error) {
 	if len_written != expected_write {
 		fmt.Println("Didn't write expected amount of bytes")
 		fmt.Printf("Written: %v Expected: %v", len_written, expected_write)
+		comm.Emit_Write(message + " Error on this line")
 		return len_written, errors.New("Expected Bytes did not match written")
 	}
+
+	comm.Emit_Write(message)
 	return len_written, nil
 }
 
@@ -230,7 +245,7 @@ func (comm *Comm) ReadWithTimeout(n int) ([]byte, error) {
 
 func (comm *Comm) Read_Forever() {
 
-	for comm.PortOpen {
+	for comm.Connected {
 		out, err := comm.ReadLine()
 		if err != nil {
 			if err != io.EOF {

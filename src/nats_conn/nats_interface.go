@@ -2,7 +2,7 @@
 * @Author: Ximidar
 * @Date:   2018-07-28 11:10:37
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-09-15 22:25:30
+* @Last Modified time: 2018-09-16 16:12:42
  */
 
 package nats_conn
@@ -32,6 +32,7 @@ const (
 
 	// pubs
 	READ_LINE = NAME + "read_line"
+	WRITE_LINE = NAME + "write_line"
 )
 
 type NatsConn struct {
@@ -51,7 +52,7 @@ func New_NatsConn() *NatsConn {
 		log.Fatalf("Can't connect: %v\n", err)
 	}
 
-	gnats.Comm = commango.New_Comm(gnats.Read_Line_Emitter)
+	gnats.Comm = commango.New_Comm(gnats.Read_Line_Emitter, gnats.Write_Line_Emitter)
 	gnats.create_req_replies()
 
 	return gnats
@@ -181,3 +182,8 @@ func (gnats *NatsConn) write_comm(msg *nats.Msg) {
 func (gnats *NatsConn) Read_Line_Emitter(line string) {
 	gnats.NC.Publish(READ_LINE, []byte(line))
 }
+
+func (gnats *NatsConn) Write_Line_Emitter(line string) {
+	gnats.NC.Publish(WRITE_LINE, []byte(line))
+}
+
