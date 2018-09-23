@@ -2,7 +2,7 @@
 * @Author: matt
 * @Date:   2018-05-25 15:58:30
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-09-22 21:53:32
+* @Last Modified time: 2018-09-22 23:00:57
  */
 
 package commango
@@ -23,6 +23,7 @@ import (
 
 type Read_Line_Callback func(string)
 type Emit_Write_Callback func(string)
+type Emit_Status_Callback func(*ms.Comm_Status)
 
 type Comm struct {
 	options         *serial.Mode
@@ -30,27 +31,47 @@ type Comm struct {
 	Detailed_Ports  []*enumerator.PortDetails
 	Port_Path       string
 	Port            serial.Port
-	Connected        bool
+	connected       bool
 	Read_Stream     chan string
 	Byte_Stream		chan byte
 	Error_Stream    chan error
 
 	Emit_Read Read_Line_Callback
 	Emit_Write Emit_Write_Callback
+	Emit_Status Emit_Status_Callback
 
 	finished_reading bool
 }
 
-func New_Comm(read_line_callback Read_Line_Callback, write_line_callback Emit_Write_Callback) *Comm {
+func New_Comm(read_line_callback Read_Line_Callback, 
+			  write_line_callback Emit_Write_Callback, 
+			  emit_status_callback Emit_Status_Callback) *Comm {
 	comm := new(Comm)
-	comm.Port_Path = ""
-	comm.Connected = false
+	comm.Port_Path = "None"
+	comm.connected = false
 	comm.Emit_Read = read_line_callback
 	comm.Emit_Write = write_line_callback
+	comm.Emit_Status = emit_status_callback
+	comm.options = &serial.Mode{
+		BaudRate: 115200,
+		Parity:   serial.NoParity,
+		DataBits: 8,
+		StopBits: serial.OneStopBit,
+	}
 	comm.Read_Stream = make(chan string, 10)
 	comm.Byte_Stream = make(chan byte, 10)
 	comm.Error_Stream = make(chan error, 10)
 	return comm
+}
+
+func (comm *Comm) Connected() (bool){
+	return comm.connected
+}
+
+func (comm *Comm) Set_Connected(value bool) {
+	comm.connected = value
+	status := comm.Get_Comm_Status()
+	comm.Emit_Status(status)
 }
 
 func (comm *Comm) Init_Comm(port_path string, baud int) error {
@@ -81,7 +102,7 @@ func (comm Comm) Get_Comm_Status() (*ms.Comm_Status){
 
 	cs.Port = comm.Port_Path
 	cs.Baud = strconv.Itoa(comm.options.BaudRate)
-	cs.Connected = comm.Connected
+	cs.Connected = comm.Connected()
 
 	return cs
 }
@@ -142,7 +163,7 @@ func (comm *Comm) Open_Comm() error {
 	defer func(){
 		if recovery := recover(); recovery != nil{
 			fmt.Println("Could not Open Port.", recovery)
-			comm.Connected = false
+			comm.Set_Connected(false)
 		}
 	}()
 
@@ -152,7 +173,7 @@ func (comm *Comm) Open_Comm() error {
 		return errors.New("Precheck Failed, Please initialize the comm before trying to open it.")
 	}
 
-	if comm.Connected{
+	if comm.Connected(){
 		fmt.Println("Comm is already connected")
 		return errors.New("Comm is already Connected")
 	}
@@ -167,7 +188,7 @@ func (comm *Comm) Open_Comm() error {
 	comm.cycle_dtr()
 	// Sleep to allow the port to start up
 	time.Sleep(20 * time.Millisecond)
-	comm.Connected = true
+	comm.Set_Connected(true)
 	fmt.Println("Port Opened")
 
 	// Start up a reader
@@ -184,7 +205,7 @@ func (comm *Comm) Close_Comm() error {
 		}
 	}()
 
-	if comm.Connected{
+	if comm.Connected(){
 		fmt.Printf("Attempting to close port with address %s\n", comm.Port_Path)
 		err := comm.Port.Close()
 		if err != nil {
@@ -194,7 +215,7 @@ func (comm *Comm) Close_Comm() error {
 		fmt.Println("Port Closed")
 	}
 
-	comm.Connected = false
+	comm.Set_Connected(false)
 	return nil
 }
 
@@ -210,7 +231,7 @@ func (comm *Comm) Write_Comm(message string) (len_written int, err error) {
 	expected_write := len(byte_message)
 
 	// Write the comm if we are connected
-	if comm.Connected {
+	if comm.Connected() {
 		len_written, err = comm.Port.Write(byte_message)
 		if err != nil {
 			return
@@ -238,7 +259,7 @@ func (comm *Comm) Write_Comm(message string) (len_written int, err error) {
 // This function will read the serial port until it receives ok
 func (comm *Comm) Read_OK(){
 	var buf []byte
-	for comm.Connected {
+	for comm.connected {
 		select{
 		case read := <- comm.Byte_Stream :
 			//add the bytes to the buffer
@@ -275,7 +296,7 @@ func (comm *Comm) Check_for_OK(buf []byte) (bool){
 // This function will continuously read the output from the Serial line
 // It will send these bytes through a channel. 
 func (comm *Comm) Stream_Bytes(){
-	for comm.Connected{
+	for comm.connected{
 		read, err := comm.ReadBytes(1)
 		if err != nil{
 			comm.Error_Stream <- err
@@ -322,7 +343,7 @@ func (comm *Comm) ReadBytes(n int) ([]byte, error) {
 
 func (comm *Comm) Read_Forever() {
 
-	for comm.Connected {
+	for comm.connected {
 		out, err := comm.ReadLine()
 		if err != nil {
 			if err != io.EOF {
@@ -342,7 +363,7 @@ func (comm *Comm) Read_OK_Forever() (err error){
 	go comm.Stream_Bytes()
 	go comm.Read_OK()
 
-	for comm.Connected {
+	for comm.connected {
 		select{
 		case full_string := <- comm.Read_Stream:
 			comm.Emit_Read(full_string)

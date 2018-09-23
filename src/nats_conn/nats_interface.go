@@ -2,7 +2,7 @@
 * @Author: Ximidar
 * @Date:   2018-07-28 11:10:37
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-09-16 16:12:42
+* @Last Modified time: 2018-09-22 23:12:58
  */
 
 package nats_conn
@@ -29,10 +29,12 @@ const (
 	CONNECT_COMM     = NAME + "connect_comm"
 	DISTCONNECT_COMM = NAME + "disconnect_comm"
 	WRITE_COMM       = NAME + "write_comm"
+	GET_STATUS       = NAME + "get_status"
 
 	// pubs
 	READ_LINE = NAME + "read_line"
 	WRITE_LINE = NAME + "write_line"
+	STATUS_UPDATE = NAME + "status_update"
 )
 
 type NatsConn struct {
@@ -52,7 +54,7 @@ func New_NatsConn() *NatsConn {
 		log.Fatalf("Can't connect: %v\n", err)
 	}
 
-	gnats.Comm = commango.New_Comm(gnats.Read_Line_Emitter, gnats.Write_Line_Emitter)
+	gnats.Comm = commango.New_Comm(gnats.Read_Line_Emitter, gnats.Write_Line_Emitter, gnats.Publish_Status)
 	gnats.create_req_replies()
 
 	return gnats
@@ -69,6 +71,7 @@ func (gnats *NatsConn) create_req_replies() error {
 	gnats.NC.Subscribe(CONNECT_COMM, gnats.connect_comm)
 	gnats.NC.Subscribe(DISTCONNECT_COMM, gnats.disconnect_comm)
 	gnats.NC.Subscribe(WRITE_COMM, gnats.write_comm)
+	gnats.NC.Subscribe(GET_STATUS, gnats.get_status)
 	return nil
 }
 
@@ -91,6 +94,26 @@ func (gnats *NatsConn) list_ports(msg *nats.Msg) {
 	}
 
 	gnats.NC.Publish(msg.Reply, m_reply)
+}
+
+func (gnats *NatsConn) get_status(msg *nats.Msg){
+	reply := new(ms.Reply_JSON)
+	status := gnats.Comm.Get_Comm_Status()
+	reply.Success = true
+	mdata, _ := json.Marshal(status)
+	reply.Message = mdata
+	rep_bytes, _ := json.Marshal(reply)
+	gnats.NC.Publish(msg.Reply, rep_bytes)
+}
+
+func (gnats *NatsConn) Publish_Status(status *ms.Comm_Status){
+	reply := new(ms.Reply_JSON)
+	reply.Success = true
+	mdata, _ := json.Marshal(status)
+	reply.Message = mdata
+	rep_bytes, _ := json.Marshal(reply)
+	gnats.NC.Publish(STATUS_UPDATE, rep_bytes)
+
 }
 
 func (gnats *NatsConn) init_comm(msg *nats.Msg) {
