@@ -2,7 +2,7 @@
 * @Author: matt
 * @Date:   2018-05-25 15:58:30
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-10-17 13:47:27
+* @Last Modified time: 2018-10-17 14:13:22
  */
 
 package commango
@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	CS "github.com/ximidar/Flotilla/data_structures/CommStructures"
+	CS "github.com/ximidar/Flotilla/DataStructures/CommStructures"
 	"go.bug.st/serial.v1" //https://godoc.org/go.bug.st/serial.v1
 	"go.bug.st/serial.v1/enumerator"
 )

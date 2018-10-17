@@ -2,7 +2,7 @@
 * @Author: Ximidar
 * @Date:   2018-07-28 11:10:37
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-10-17 14:00:30
+* @Last Modified time: 2018-10-17 14:13:22
  */
 
 package NatsConn
@@ -15,8 +15,8 @@ import (
 
 	"github.com/nats-io/go-nats"
 	"github.com/ximidar/Flotilla/Commango/comm"
-	DS "github.com/ximidar/Flotilla/data_structures"
-	CS "github.com/ximidar/Flotilla/data_structures/CommStructures"
+	DS "github.com/ximidar/Flotilla/DataStructures"
+	CS "github.com/ximidar/Flotilla/DataStructures/CommStructures"
 )
 
 // NatsConn is the Comm interface to the Nats Server
