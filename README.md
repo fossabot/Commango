@@ -1,5 +1,7 @@
 # Commango
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/Ximidar/Commango)](https://goreportcard.com/report/github.com/Ximidar/Commango)
+
 ## What is this?
 Commango is a Daemon to monitor a serial port for 3D printers. This is a module of the Flotilla system.
 
