@@ -2,94 +2,105 @@
 * @Author: matt
 * @Date:   2018-05-25 15:58:30
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-10-01 01:08:50
+* @Last Modified time: 2018-10-17 13:47:27
  */
 
 package commango
 
 import (
-	_ "encoding/hex"
 	"errors"
 	"fmt"
-	"go.bug.st/serial.v1" //https://godoc.org/go.bug.st/serial.v1
-	"go.bug.st/serial.v1/enumerator"
 	"io"
 	"log"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
-	ms "github.com/ximidar/Flotilla/data_structures"
+
+	CS "github.com/ximidar/Flotilla/data_structures/CommStructures"
+	"go.bug.st/serial.v1" //https://godoc.org/go.bug.st/serial.v1
+	"go.bug.st/serial.v1/enumerator"
 )
 
-type Read_Line_Callback func(string)
-type Emit_Write_Callback func(string)
-type Emit_Status_Callback func(*ms.Comm_Status)
+// ReadLineCallback is a function for publishing updates to Nats
+type ReadLineCallback func(string)
 
+// EmitWriteCallback is a function for publishing updates to Nats
+type EmitWriteCallback func(string)
+
+// EmitStatusCallback is a function for publishing updates to Nats
+type EmitStatusCallback func(*CS.CommStatus)
+
+// Comm handles the Serial Connection
 type Comm struct {
-	options         *serial.Mode
-	Available_Ports []string
-	Detailed_Ports  []*enumerator.PortDetails
-	Port_Path       string
-	Port            serial.Port
-	connected       bool
-	Read_Stream     chan string
-	Byte_Stream		chan byte
-	Error_Stream    chan error
+	options        *serial.Mode
+	AvailablePorts []string
+	DetailedPorts  []*enumerator.PortDetails
+	PortPath       string
+	Port           serial.Port
+	connected      bool
+	ReadStream     chan string
+	ByteStream     chan byte
+	ErrorStream    chan error
 
-	Emit_Read Read_Line_Callback
-	Emit_Write Emit_Write_Callback
-	Emit_Status Emit_Status_Callback
+	EmitRead   ReadLineCallback
+	EmitWrite  EmitWriteCallback
+	EmitStatus EmitStatusCallback
 
-	finished_reading bool
+	finishedReading bool
 }
 
-func New_Comm(read_line_callback Read_Line_Callback, 
-			  write_line_callback Emit_Write_Callback, 
-			  emit_status_callback Emit_Status_Callback) *Comm {
+// NewComm will Construct a Comm Object
+func NewComm(readLineCallback ReadLineCallback,
+	writeLineCallback EmitWriteCallback,
+	emitStatusCallback EmitStatusCallback) *Comm {
 	comm := new(Comm)
-	comm.Port_Path = "None"
+	comm.PortPath = "None"
 	comm.connected = false
-	comm.Emit_Read = read_line_callback
-	comm.Emit_Write = write_line_callback
-	comm.Emit_Status = emit_status_callback
+	comm.EmitRead = readLineCallback
+	comm.EmitWrite = writeLineCallback
+	comm.EmitStatus = emitStatusCallback
 	comm.options = &serial.Mode{
 		BaudRate: 115200,
 		Parity:   serial.NoParity,
 		DataBits: 8,
 		StopBits: serial.OneStopBit,
 	}
-	comm.Read_Stream = make(chan string, 10)
-	comm.Byte_Stream = make(chan byte, 10)
-	comm.Error_Stream = make(chan error, 10)
+	comm.ReadStream = make(chan string, 10)
+	comm.ByteStream = make(chan byte, 10)
+	comm.ErrorStream = make(chan error, 10)
 	return comm
 }
 
-func (comm *Comm) Connected() (bool){
+// Connected is a function to check the current connection to the serial port
+func (comm *Comm) Connected() bool {
 	return comm.connected
 }
 
-func (comm *Comm) Set_Connected(value bool) {
+// SetConnected will set the connection status
+func (comm *Comm) SetConnected(value bool) {
 	comm.connected = value
-	status := comm.Get_Comm_Status()
-	comm.Emit_Status(status)
+	status := comm.GetCommStatus()
+	comm.EmitStatus(status)
 }
 
-func (comm *Comm) Init_Comm(port_path string, baud int) error {
+// InitComm will initialize the comm object with a defined Serial Connection
+func (comm *Comm) InitComm(portPath string, baud int) error {
 
-	comm.Port_Path = port_path
+	comm.PortPath = portPath
 	comm.options = &serial.Mode{
 		BaudRate: baud,
 		Parity:   serial.NoParity,
 		DataBits: 8,
 		StopBits: serial.OneStopBit,
 	}
-	comm.Print_Options()
+	comm.PrintOptions()
 	return nil
 }
 
-func (comm Comm) Print_Options() {
+// PrintOptions will print out the current connection options
+func (comm Comm) PrintOptions() {
 	fmt.Println("Comm Options:")
-	fmt.Println("|  Port Path:", comm.Port_Path)
+	fmt.Println("|  Port Path:", comm.PortPath)
 	fmt.Println("|  Serial Options:")
 	fmt.Println("|  |  Baud Rate:", comm.options.BaudRate)
 	fmt.Println("|  |  Parity:", comm.options.Parity)
@@ -97,17 +108,19 @@ func (comm Comm) Print_Options() {
 	fmt.Println("|  |  Stop Bits:", comm.options.StopBits)
 }
 
-func (comm Comm) Get_Comm_Status() (*ms.Comm_Status){
-	cs := new(ms.Comm_Status)
+// GetCommStatus will return the current connection status
+func (comm Comm) GetCommStatus() *CS.CommStatus {
+	cs := new(CS.CommStatus)
 
-	cs.Port = comm.Port_Path
+	cs.Port = comm.PortPath
 	cs.Baud = strconv.Itoa(comm.options.BaudRate)
 	cs.Connected = comm.Connected()
 
 	return cs
 }
 
-func (comm *Comm) Get_Available_Ports() ([]string, error) {
+// GetAvailablePorts will query the system for all available ports we can connect to
+func (comm *Comm) GetAvailablePorts() ([]string, error) {
 	ports, err := serial.GetPortsList()
 	if err != nil {
 		return nil, err
@@ -115,11 +128,12 @@ func (comm *Comm) Get_Available_Ports() ([]string, error) {
 	if len(ports) == 0 {
 		ports = []string{string("none")}
 	}
-	comm.Available_Ports = ports
+	comm.AvailablePorts = ports
 	return ports, nil
 }
 
-func (comm *Comm) Get_Detailed_Ports() {
+// GetDetailedPorts will get available ports with more detail
+func (comm *Comm) GetDetailedPorts() {
 	ports, err := enumerator.GetDetailedPortsList()
 	if err != nil {
 		log.Fatal(err)
@@ -136,20 +150,20 @@ func (comm *Comm) Get_Detailed_Ports() {
 		}
 	}
 
-	comm.Detailed_Ports = ports
+	comm.DetailedPorts = ports
 }
 
-// Do a little error checking for good start
+// PreCheck Do a little error checking for good start
 func (comm Comm) PreCheck() (ready bool) {
 	ready = true
-	if comm.Port_Path == "" {
+	if comm.PortPath == "" {
 		ready = false
 	}
 	return
 }
 
 // This initiates a reset for most microcontrollers
-func (comm *Comm) cycle_dtr(){
+func (comm *Comm) cycledtr() {
 	comm.Port.SetDTR(false)
 	time.Sleep(100 * time.Millisecond)
 	comm.Port.SetDTR(true)
@@ -157,56 +171,58 @@ func (comm *Comm) cycle_dtr(){
 	comm.Port.SetDTR(false)
 }
 
-func (comm *Comm) Open_Comm() error {
+// OpenComm will attempt to open a Serial Connection
+func (comm *Comm) OpenComm() error {
 
 	// recover in case this all goes tits up
-	defer func(){
-		if recovery := recover(); recovery != nil{
+	defer func() {
+		if recovery := recover(); recovery != nil {
 			fmt.Println("Could not Open Port.", recovery)
-			comm.Set_Connected(false)
+			comm.SetConnected(false)
 		}
 	}()
 
 	// Do a Precheck before starting
 	if !comm.PreCheck() {
 		fmt.Println("Precheck Failed!")
-		return errors.New("Precheck Failed, Please initialize the comm before trying to open it.")
+		return errors.New("precheck Failed, Please initialize the comm before trying to open it")
 	}
 
-	if comm.Connected(){
+	if comm.Connected() {
 		fmt.Println("Comm is already connected")
 		return errors.New("Comm is already Connected")
 	}
 
 	var err error
-	fmt.Printf("Attempting to open port with address %v\n", comm.Port_Path)
-	comm.Port, err = serial.Open(comm.Port_Path, comm.options)
+	fmt.Printf("Attempting to open port with address %v\n", comm.PortPath)
+	comm.Port, err = serial.Open(comm.PortPath, comm.options)
 	if err != nil {
 		fmt.Println("Error Could not open port", err)
 		return err
 	}
-	comm.cycle_dtr()
+	comm.cycledtr()
 	// Sleep to allow the port to start up
 	time.Sleep(20 * time.Millisecond)
-	comm.Set_Connected(true)
+	comm.SetConnected(true)
 	fmt.Println("Port Opened")
 
 	// Start up a reader
 	//go comm.Read_Forever()
-	go comm.Read_OK_Forever()
+	go comm.ReadOKForever()
 	return nil
 }
 
-func (comm *Comm) Close_Comm() error {
+// CloseComm will attempt to close the Serial Connection
+func (comm *Comm) CloseComm() error {
 	// recover in case this all goes tits up
-	defer func(){
-		if recovery := recover(); recovery != nil{
+	defer func() {
+		if recovery := recover(); recovery != nil {
 			fmt.Println("Could not close port.", recovery)
 		}
 	}()
 
-	if comm.Connected(){
-		fmt.Printf("Attempting to close port with address %s\n", comm.Port_Path)
+	if comm.Connected() {
+		fmt.Printf("Attempting to close port with address %s\n", comm.PortPath)
 		err := comm.Port.Close()
 		if err != nil {
 			fmt.Println("Could not close port")
@@ -215,32 +231,33 @@ func (comm *Comm) Close_Comm() error {
 		fmt.Println("Port Closed")
 	}
 
-	comm.Set_Connected(false)
+	comm.SetConnected(false)
 	return nil
 }
 
-func (comm *Comm) Write_Comm(message string) (len_written int, err error) {
-	len_written = -1
+// WriteComm will write a message to the Serial Connection
+func (comm *Comm) WriteComm(message string) (lenWritten int, err error) {
+	lenWritten = -1
 	//prepare string for writing
 	// Check that message has an \n after it
 	if !strings.HasSuffix(message, "\n") {
 		message += "\n"
 	}
 	// Turn message into a bytestring
-	byte_message := []byte(message)
-	expected_write := len(byte_message)
+	byteMessage := []byte(message)
+	expectedWrite := len(byteMessage)
 
 	// Write the comm if we are connected
 	if comm.Connected() {
-		len_written, err = comm.Port.Write(byte_message)
+		lenWritten, err = comm.Port.Write(byteMessage)
 		if err != nil {
 			return
 		}
-		if len_written != expected_write {
+		if lenWritten != expectedWrite {
 			fmt.Println("Didn't write expected amount of bytes")
-			fmt.Printf("Written: %v Expected: %v", len_written, expected_write)
-			comm.Emit_Write(message + " Error on this line")
-			return len_written, errors.New("Expected Bytes did not match written")
+			fmt.Printf("Written: %v Expected: %v", lenWritten, expectedWrite)
+			comm.EmitWrite(message + " Error on this line")
+			return lenWritten, errors.New("expected Bytes did not match written")
 		}
 	} else {
 		err = errors.New("Cannot Write Comm")
@@ -248,43 +265,44 @@ func (comm *Comm) Write_Comm(message string) (len_written int, err error) {
 	}
 
 	// Setup log message only if we wrote successfuly
-	log_message := strings.Replace(message, "\n", "", -1)
-	log_message = fmt.Sprintf("SENT: %v", log_message)
-	fmt.Println(log_message)
-	comm.Emit_Write(message)
+	logMessage := strings.Replace(message, "\n", "", -1)
+	logMessage = fmt.Sprintf("SENT: %v", logMessage)
+	fmt.Println(logMessage)
+	comm.EmitWrite(message)
 	return
 }
 
-
-// This function will read the serial port until it receives ok
-func (comm *Comm) Read_OK(){
+// ReadOK This function will read the serial port until it receives ok
+func (comm *Comm) ReadOK() {
 	var buf []byte
 	for comm.connected {
-		select{
-		case read := <- comm.Byte_Stream :
+		select {
+		case read := <-comm.ByteStream:
 			//add the bytes to the buffer
 			buf = append(buf, read)
-		case <- time.After(10 * time.Millisecond):
-			if len(buf) == 0 {continue}
+		case <-time.After(10 * time.Millisecond):
+			if len(buf) == 0 {
+				continue
+			}
 
-			if comm.Check_for_OK(buf) {
-				comm.Read_Stream <- string(buf)
+			if comm.CheckForOK(buf) {
+				comm.ReadStream <- string(buf)
 				buf = []byte{}
 			}
-		case <- comm.Error_Stream:
+		case <-comm.ErrorStream:
 			return //If we are erroring out then we can't read anything
 		}
 	}
 }
 
-// Check for ok or start
-func (comm *Comm) Check_for_OK(buf []byte) (bool){
-	buf_string := string(buf)
+// CheckForOK Check for ok or start
+func (comm *Comm) CheckForOK(buf []byte) bool {
+	bufString := string(buf)
 
-	if strings.Contains(buf_string, "ok"){
+	if strings.Contains(bufString, "ok") {
 		fmt.Println("Got OK!")
 		return true
-	} else if strings.Contains(buf_string, "start"){
+	} else if strings.Contains(bufString, "start") {
 		fmt.Println("Got Start!")
 		return true
 	}
@@ -293,23 +311,24 @@ func (comm *Comm) Check_for_OK(buf []byte) (bool){
 	return false
 }
 
-// This function will continuously read the output from the Serial line
-// It will send these bytes through a channel. 
-func (comm *Comm) Stream_Bytes(){
-	for comm.connected{
+// StreamBytes This function will continuously read the output from the Serial line
+// It will send these bytes through a channel.
+func (comm *Comm) StreamBytes() {
+	for comm.connected {
 		read, err := comm.ReadBytes(1)
-		if err != nil{
-			comm.Error_Stream <- err
+		if err != nil {
+			comm.ErrorStream <- err
 			fmt.Println("Stream Bytes Erroring out")
 			return
 		}
-		comm.Byte_Stream <- read[0]
+		comm.ByteStream <- read[0]
 	}
 }
 
+// ReadLine will Read until a newline gets read
 func (comm *Comm) ReadLine() (out []byte, err error) {
-	read_line := false
-	for read_line == false {
+	readLine := false
+	for readLine == false {
 		read, err := comm.ReadBytes(1)
 
 		if err != nil {
@@ -319,7 +338,7 @@ func (comm *Comm) ReadLine() (out []byte, err error) {
 
 		if read[0] == 10 {
 			out = append(out, read[0])
-			read_line = true
+			readLine = true
 			return out, nil
 		}
 
@@ -331,17 +350,19 @@ func (comm *Comm) ReadLine() (out []byte, err error) {
 
 }
 
+// ReadBytes will read n amount of bytes from the Serial Line
 func (comm *Comm) ReadBytes(n int) ([]byte, error) {
 	buf := make([]byte, n)
-	bytes_read, err := comm.Port.Read(buf)
-	if bytes_read != n {
-		log.Println(fmt.Sprintf("Read: %v Expexted: %v", bytes_read, n))
-		err = errors.New(fmt.Sprintf("Read: %v Expexted: %v", bytes_read, n))
+	bytesRead, err := comm.Port.Read(buf)
+	if bytesRead != n {
+		log.Println(fmt.Sprintf("Read: %v Expexted: %v", bytesRead, n))
+		err = fmt.Errorf("Read: %v Expexted: %v", bytesRead, n)
 	}
 	return buf, err
 }
 
-func (comm *Comm) Read_Forever() {
+// ReadForever will Read the serial line until there is an error or until until the program exits
+func (comm *Comm) ReadForever() {
 
 	for comm.connected {
 		out, err := comm.ReadLine()
@@ -350,25 +371,26 @@ func (comm *Comm) Read_Forever() {
 				fmt.Printf("%v", err)
 			}
 		} else {
-			string_out := string(out)
-			comm.Emit_Read(string_out)
-			string_out = fmt.Sprintf("RECV: %v", string_out)
-			fmt.Print(string_out)
+			stringOut := string(out)
+			comm.EmitRead(stringOut)
+			stringOut = fmt.Sprintf("RECV: %v", stringOut)
+			fmt.Print(stringOut)
 		}
 	}
 	fmt.Println("Stopping the reading")
 }
 
-func (comm *Comm) Read_OK_Forever() (err error){
-	go comm.Stream_Bytes()
-	go comm.Read_OK()
+// ReadOKForever will Read messages seperated by an OK
+func (comm *Comm) ReadOKForever() (err error) {
+	go comm.StreamBytes()
+	go comm.ReadOK()
 
 	for comm.connected {
-		select{
-		case full_string := <- comm.Read_Stream:
-			comm.Emit_Read(full_string)
-			fmt.Printf("RECV: %v\n", full_string)
-		case err = <- comm.Error_Stream:
+		select {
+		case fullString := <-comm.ReadStream:
+			comm.EmitRead(fullString)
+			fmt.Printf("RECV: %v\n", fullString)
+		case err = <-comm.ErrorStream:
 			fmt.Println("Read Ok Erroring out:", err.Error())
 			return err
 		}
@@ -376,6 +398,5 @@ func (comm *Comm) Read_OK_Forever() (err error){
 
 	fmt.Println("Stopped Reading")
 	return nil
-
 
 }
