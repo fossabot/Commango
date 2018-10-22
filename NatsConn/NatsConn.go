@@ -2,7 +2,7 @@
 * @Author: Ximidar
 * @Date:   2018-07-28 11:10:37
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-10-17 14:13:22
+* @Last Modified time: 2018-10-18 15:24:12
  */
 
 package NatsConn
@@ -49,15 +49,16 @@ func (gnats *NatsConn) Serve() {
 	select {} //TODO make this select detect shutdown signals
 }
 
-func (gnats *NatsConn) createReqReplies() error {
+func (gnats *NatsConn) createReqReplies() (err error) {
 	// req replies
-	gnats.NC.Subscribe(CS.ListPorts, gnats.listPorts)
-	gnats.NC.Subscribe(CS.InitializeComm, gnats.initComm)
-	gnats.NC.Subscribe(CS.ConnectComm, gnats.connectComm)
-	gnats.NC.Subscribe(CS.DisconnectComm, gnats.disconnectComm)
-	gnats.NC.Subscribe(CS.WriteComm, gnats.writeComm)
-	gnats.NC.Subscribe(CS.GetStatus, gnats.getStatus)
-	return nil
+	_, err = gnats.NC.Subscribe(CS.ListPorts, gnats.listPorts)
+	_, err = gnats.NC.Subscribe(CS.InitializeComm, gnats.initComm)
+	_, err = gnats.NC.Subscribe(CS.ConnectComm, gnats.connectComm)
+	_, err = gnats.NC.Subscribe(CS.DisconnectComm, gnats.disconnectComm)
+	_, err = gnats.NC.Subscribe(CS.WriteComm, gnats.writeComm)
+	_, err = gnats.NC.Subscribe(CS.GetStatus, gnats.getStatus)
+
+	return err
 }
 
 func (gnats *NatsConn) listPorts(msg *nats.Msg) {
