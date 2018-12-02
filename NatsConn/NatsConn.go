@@ -2,7 +2,7 @@
 * @Author: Ximidar
 * @Date:   2018-07-28 11:10:37
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-10-18 15:24:12
+* @Last Modified time: 2018-11-26 15:59:05
  */
 
 package NatsConn
@@ -46,7 +46,9 @@ func NewNatsConn() *NatsConn {
 
 // Serve will keep the program open
 func (gnats *NatsConn) Serve() {
-	select {} //TODO make this select detect shutdown signals
+	//TODO make this monitor the exit signal
+	exit := make(chan bool, 0)
+	<-exit
 }
 
 func (gnats *NatsConn) createReqReplies() (err error) {
