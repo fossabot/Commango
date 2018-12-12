@@ -2,7 +2,7 @@
 * @Author: matt
 * @Date:   2018-05-25 15:58:30
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-10-17 14:13:22
+* @Last Modified time: 2018-12-11 18:42:12
  */
 
 package commango
@@ -265,9 +265,9 @@ func (comm *Comm) WriteComm(message string) (lenWritten int, err error) {
 	}
 
 	// Setup log message only if we wrote successfuly
-	logMessage := strings.Replace(message, "\n", "", -1)
-	logMessage = fmt.Sprintf("SENT: %v", logMessage)
-	fmt.Println(logMessage)
+	//logMessage := strings.Replace(message, "\n", "", -1)
+	//logMessage = fmt.Sprintf("SENT: %v", logMessage)
+	//fmt.Println(logMessage)
 	comm.EmitWrite(message)
 	return
 }
@@ -299,15 +299,16 @@ func (comm *Comm) ReadOK() {
 func (comm *Comm) CheckForOK(buf []byte) bool {
 	bufString := string(buf)
 
-	if strings.Contains(bufString, "ok") {
-		fmt.Println("Got OK!")
-		return true
-	} else if strings.Contains(bufString, "start") {
-		fmt.Println("Got Start!")
-		return true
+	acceptableChecks := []string{"ok", "start", "wait", "echo:busy: processing", "error"}
+
+	for index := range acceptableChecks {
+		if strings.Contains(bufString, acceptableChecks[index]) {
+			return true
+		}
 	}
 
 	fmt.Println("Got Nothing!")
+	fmt.Println(bufString)
 	return false
 }
 
