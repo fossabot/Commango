@@ -2,7 +2,7 @@
 * @Author: matt
 * @Date:   2018-05-25 15:58:30
 * @Last Modified by:   Ximidar
-* @Last Modified time: 2018-12-11 18:42:12
+* @Last Modified time: 2018-12-12 15:38:19
  */
 
 package commango
@@ -128,6 +128,10 @@ func (comm *Comm) GetAvailablePorts() ([]string, error) {
 	if len(ports) == 0 {
 		ports = []string{string("none")}
 	}
+
+	// Append Custom Ports
+	ports = append(ports, "/tmp/fakeprinter")
+
 	comm.AvailablePorts = ports
 	return ports, nil
 }
